@@ -1,2 +1,10 @@
-fastapi
-uvicorn 
+fastapi==0.104.1
+uvicorn==0.24.0
+openai-whisper==20231117
+torch>=2.2.0
+numpy>=1.26.0
+soundfile==0.12.1
+konlpy==0.6.0
+transformers==4.35.2
+mecab-ko==1.0.0
+mecab-ko-dic==1.0.0 
