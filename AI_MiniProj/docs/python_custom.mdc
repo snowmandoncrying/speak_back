@@ -1,0 +1,43 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+{
+  "lsp": {
+    "enabled": true,
+    "server": "pylsp"
+  },
+  "formatting": {
+    "provider": "black",
+    "args": ["--fast"]
+  },
+  "project": {
+    "structure": [
+      "app/routers",
+      "app/services",
+      "app/schemas"
+    ],
+    "router": {
+      "baseClass": "APIRouter",
+      "endpointAsync": true,
+      "jsonResponse": "JSONResponse"
+    },
+    "service": {
+      "modular": true,
+      "directory": "app/services"
+    },
+    "typeHints": true
+  },
+  "python": {
+    "style": "fastapi",
+    "typeHints": true
+  },
+  "customRules": [
+    "시킨것만 하고 딴짓하지마",
+    "내가 수정한 코드 고치지마",
+    "잘좀해라."
+  ]
+}
+
+
