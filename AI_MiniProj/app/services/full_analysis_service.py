@@ -1,11 +1,7 @@
-from app.services.stt_service import speech_recognizer
 from app.services.intonation_analyzer import analyze_intonation
 from app.services.speed_analyzer import analyze_speed
 
-def analyze_full_from_audio(audio_path: str):
-    stt_result = speech_recognizer(audio_path)
-    segments = stt_result["segments"]
-    text = stt_result["text"]
+def analyze_full_from_segments(audio_path: str, segments, text):
     # 억양 분석
     intonation_results, avg_pitch_std, pitch_ranges = analyze_intonation(audio_path, segments)
     # pitch 검출률 계산
@@ -22,11 +18,11 @@ def analyze_full_from_audio(audio_path: str):
         intonation_feedback = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
         speed_feedback = speed_results[i]["feedback"] if i < len(speed_results) else None
         feedback_by_sentence.append({
-            "start": start,
-            "end": end,
-            "text": sentence_text,
-            "intonation_feedback": intonation_feedback,
-            "speed_feedback": speed_feedback
+            "start_point": start,
+            "end_point": end,
+            "word": sentence_text,
+            "speed": speed_feedback,
+            "intonation": intonation_feedback
         })
     return {
         "text": text,

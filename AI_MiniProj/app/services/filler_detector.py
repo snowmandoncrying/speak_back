@@ -8,6 +8,8 @@ from collections import defaultdict
 import numpy as np
 import os
 from abc import ABC, abstractmethod
+from app.services.intonation_analyzer import analyze_intonation
+from app.services.speed_analyzer import analyze_speed
 
 # JAVA_HOME 설정 (KoNLPy 사용을 위해)
 os.environ['JAVA_HOME'] = r'C:\Program Files\Java\jdk-17'
@@ -329,6 +331,11 @@ class FillerWordDetector:
             "original_stt_result": stt_result
         }
         
+        # 억양 분석
+        intonation_results, avg_pitch_std, pitch_ranges = analyze_intonation(file_path, segments)
+        # 속도 분석
+        speed_results, avg_spm, avg_wpm = analyze_speed(file_path, segments)
+        
         return result
     
     def calculate_total_stats(self, segments: List[Dict]) -> Dict:
@@ -423,6 +430,11 @@ def main():
         # JSON 저장
         output_json = "filler_analysis_whisper.json"
         detector.save_to_json(result, output_json)
+        
+        # 억양 분석
+        intonation_results, avg_pitch_std, pitch_ranges = analyze_intonation(audio_file, result["segments"])
+        # 속도 분석
+        speed_results, avg_spm, avg_wpm = analyze_speed(audio_file, result["segments"])
         
     except Exception as e:
         print(f"❌ 오류: {e}")
