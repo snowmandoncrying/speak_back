@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.router.intonation_router import router as intonation_router
 
 app = FastAPI()
 
@@ -12,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(intonation_router)
 # 라우터 등록은 이후에 추가 예정
 # from app.routers.router import router
 # app.include_router(router) 
