@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 from app.services.audio_utils import convert_to_wav
 from app.services.whisper_service import run_whisper_transcribe
 from app.services.filler_llm_detector import analyze_filler_from_text, build_filler_map_from_result
+from app.services.speed_analyzer import analyze_speed
+from app.services.intonation_analyzer import analyze_intonation
 import os
 
 router = APIRouter(prefix="/api/speech", tags=["Speech Analysis"])
@@ -27,15 +29,14 @@ def analyze_speech(file: UploadFile = File(...)):
         # segment.id별로 말버릇 매핑
         filler_map = build_filler_map_from_result(filler_result, segments)
 
-        # 4. (추가 분석 서비스: 발음, 속도, 억양 등 segment별로 결과 추가)
-        for seg in segments:
+        # 4. (추가 분석 서비스: 속도, 억양 등 segment별로 결과 추가)
+        speed_results, avg_spm, avg_wpm = analyze_speed(wav_path, segments)
+        intonation_results, avg_pitch_std, pitch_ranges = analyze_intonation(wav_path, segments)
+        for i, seg in enumerate(segments):
             seg_id = seg.get("id")
-            # 예시: seg["pronunciation"] = analyze_pronunciation_for_segment(wav_path, seg["start"], seg["end"])
-            # 예시: seg["speed"] = analyze_speed_for_segment(wav_path, seg["start"], seg["end"])
-            # 예시: seg["intonation"] = analyze_intonation_for_segment(wav_path, seg["start"], seg["end"])
-            # 말버릇 결과는 filler_map에서 가져와서 추가
             seg["filler"] = filler_map.get(seg_id, "없음")
-            # 기타 분석 결과도 필요시 추가
+            seg["speed"] = speed_results[i]["feedback"] if i < len(speed_results) else None
+            seg["intonation"] = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
 
         # 5. 통합 결과 생성
         merged_segments = []
