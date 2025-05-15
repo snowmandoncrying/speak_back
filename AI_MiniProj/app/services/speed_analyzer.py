@@ -30,13 +30,15 @@ def analyze_speed(wav_path, segments):
         word_speeds.append(speed_word)
         total_words += word_count
         total_duration += duration
-        # 피드백 분기
-        if speed_syllable < 3:
-            feedback = "❗ 발화 속도가 느린 편입니다. 조금 더 또박또박, 리듬감 있게 말해보세요."
-        elif speed_syllable > 7:
-            feedback = "❗ 발화 속도가 빠른 편입니다. 중요한 부분은 천천히 또박또박 말해보세요."
-        else:
+        # 피드백 분기 (4단계)
+        if speed_syllable < 2.5:
+            feedback = "❗ 발화 속도가 매우 느린 편입니다. 리듬을 살려서 좀 더 자연스럽게 말해보세요."
+        elif speed_syllable < 4.5:
             feedback = "🟢 적절한 발화 속도로 전달되고 있습니다."
+        elif speed_syllable < 6.0:
+            feedback = "⚠ 발화 속도가 다소 빠릅니다. 중요한 부분은 조금 더 천천히 말해보세요."
+        else:
+            feedback = "❗ 발화 속도가 매우 빠릅니다. 청중이 이해하기 어려울 수 있어요. 천천히 또박또박 말해보세요."
         results.append({
             "speed_syllable": speed_syllable,
             "speed_word": speed_word,
