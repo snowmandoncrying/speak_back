@@ -1,8 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
-from services.audio_utils import convert_to_wav
-from services.whisper_service import run_whisper_transcribe
-from services.filler_llm_detector import analyze_filler_from_text, build_filler_map_from_result
+from app.services.audio_utils import convert_to_wav
+from app.services.whisper_service import run_whisper_transcribe
+from app.services.filler_llm_detector import analyze_filler_from_text, build_filler_map_from_result
 import os
 
 router = APIRouter(prefix="/api/speech", tags=["Speech Analysis"])
