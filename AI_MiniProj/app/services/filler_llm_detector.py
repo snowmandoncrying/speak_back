@@ -247,3 +247,39 @@ if __name__ == "__main__":
     # 테스트 실행
     audio_file = "test_audio/b1055308.wav"
     test_with_file(audio_file)
+
+def build_filler_map_from_result(filler_result: dict, whisper_segments: list) -> dict[int, str]:
+    """
+    whisper의 segment 목록과 말버릇 분석 결과(filler_result)를 연결하여,
+    segment.id별로 해당 문장에 포함된 말버릇(필러) 문자열을 반환하는 맵을 생성합니다.
+    Args:
+        filler_result (dict): analyze_filler_from_bytes()의 리턴값 ("filler_sentences" 포함)
+        whisper_segments (list): Whisper의 segment 리스트 (각 segment는 'id', 'text' 등 포함)
+    Returns:
+        dict[int, str]: segment.id별로 필러(말버릇) 문자열 (없으면 '없음')
+    """
+    # Whisper segment의 텍스트와 filler_result의 문장 매칭 (공백, 구두점 등 유사하게 비교)
+    def normalize(text):
+        return re.sub(r'\s+', '', re.sub(r'[.,!?…~\-]', '', text)).strip()
+
+    filler_map = {}
+    filler_sentences = filler_result.get("filler_sentences", [])
+    used = set()
+
+    for seg in whisper_segments:
+        seg_id = seg.get("id")
+        seg_text = normalize(seg.get("text", ""))
+        found = False
+        for idx, fs in enumerate(filler_sentences):
+            fs_text = normalize(fs.get("문장", ""))
+            if fs_text and fs_text in seg_text and idx not in used:
+                # 말버릇 dict를 콤마로 연결
+                fillers = fs.get("말버릇", {})
+                filler_str = ", ".join(fillers.keys()) if fillers else "없음"
+                filler_map[seg_id] = filler_str
+                used.add(idx)
+                found = True
+                break
+        if not found:
+            filler_map[seg_id] = "없음"
+    return filler_map
