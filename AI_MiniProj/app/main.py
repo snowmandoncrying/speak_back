@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import traceback
 # from app.router.full_router import router as full_router
 
 app = FastAPI()
@@ -24,3 +26,12 @@ app.include_router(speech_router)
 from app.services.audio_utils import convert_to_wav
 from app.services.whisper_service import run_whisper_transcribe
 from app.services.filler_llm_detector import analyze_filler_from_text, build_filler_map_from_result 
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print("==== FastAPI Global Exception Handler ====")
+    print("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"}
+    ) 
