@@ -6,6 +6,7 @@ from app.services.filler_llm_detector import analyze_filler_from_text, build_fil
 from app.services.speed_analyzer import analyze_speed
 from app.services.intonation_analyzer import analyze_intonation
 from app.services.qa_generator import generate_qa_pairs
+from app.services.context_feedback_service import add_context_to_segments
 from pydantic import BaseModel
 from fastapi import Form
 import os
@@ -42,6 +43,9 @@ def analyze_speech(file: UploadFile = File(...)):
             seg["speed"] = speed_results[i]["feedback"] if i < len(speed_results) else None
             seg["intonation"] = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
 
+        # 어휘력 피드백 추가
+        segments = add_context_to_segments(segments)
+
         # 5. 통합 결과 생성
         merged_segments = []
         for seg in segments:
@@ -55,6 +59,7 @@ def analyze_speech(file: UploadFile = File(...)):
                 "pronunciation": seg.get("pronunciation"),
                 "filler": seg.get("filler"),
                 "silence": seg.get("silence"),
+                "vocabulary": seg.get("vocabulary")
             }
             merged_segments.append(merged)
 
