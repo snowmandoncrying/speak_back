@@ -6,6 +6,13 @@ import traceback
 
 app = FastAPI()
 
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to Speech Analysis API", 
+            "endpoints": {
+                "analyze_speech": "/api/speech/analyze"
+            }}
+
 # CORS 설정 (모든 origin 허용)
 app.add_middleware(
     CORSMiddleware,

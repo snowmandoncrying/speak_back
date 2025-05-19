@@ -6,9 +6,25 @@ from app.services.filler_llm_detector import analyze_filler_from_text, build_fil
 from app.services.speed_analyzer import analyze_speed
 from app.services.intonation_analyzer import analyze_intonation
 from app.services.context_feedback_service import add_context_to_segments
+from app.services.volume import PronunciationAnalyzer
 import os
+import numpy as np
 
 router = APIRouter(prefix="/api/speech", tags=["Speech Analysis"])
+
+# PronunciationAnalyzer 인스턴스 생성
+pronunciation_analyzer = PronunciationAnalyzer()
+
+def convert_numpy_types(obj):
+    if isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_numpy_types(item) for item in obj]
+    return obj
 
 @router.post("/analyze")
 async def analyze_speech(file: UploadFile = File(...)):
@@ -33,12 +49,25 @@ async def analyze_speech(file: UploadFile = File(...)):
         # 4. (추가 분석 서비스: 속도, 억양 등 segment별로 결과 추가)
         speed_results, avg_spm, avg_wpm = analyze_speed(wav_path, segments)
         intonation_results, avg_pitch_std, pitch_ranges = analyze_intonation(wav_path, segments)
+        silence_segments = pronunciation_analyzer.detect_silence_segments(wav_path)
+        
         for i, seg in enumerate(segments):
             seg_id = seg.get("id")
             seg["filler"] = filler_map.get(seg_id, "없음")
             seg["speed"] = speed_results[i]["feedback"] if i < len(speed_results) else None
             seg["intonation"] = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
+            seg["volume"] = pronunciation_analyzer.analyze_volume(wav_path, seg["start"], seg["end"])
 
+            silence_duration, silence_feedback = pronunciation_analyzer.analyze_silence(
+                seg, previous_segment = None, silence_segments = silence_segments
+            )
+            if silence_feedback:
+                seg["silence"] = {
+                    "duration": float(silence_duration) if silence_duration is not None else None,
+                    "feedback": silence_feedback
+                }
+
+            previous_segment = seg
         # 5. 각 segment에 Gemini context 피드백 추가 (비동기)
         segments = await add_context_to_segments(segments)
 
@@ -50,11 +79,11 @@ async def analyze_speech(file: UploadFile = File(...)):
                 "endPoint": seg.get("end"),
                 "word": seg.get("text"),
                 "speed": seg.get("speed"),
-                "volume": seg.get("volume"),
+                "volume": convert_numpy_types(seg.get("volume")),
                 "intonation": seg.get("intonation"),
                 "pronunciation": seg.get("pronunciation"),
                 "filler": seg.get("filler"),
-                "silence": seg.get("silence"),
+                "silence": convert_numpy_types(seg.get("silence")),
                 "context": seg.get("context"),
             }
             merged_segments.append(merged)
