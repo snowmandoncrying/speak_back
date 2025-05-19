@@ -10,6 +10,7 @@ from app.services.context_feedback_service import add_context_to_segments
 from pydantic import BaseModel
 from fastapi import Form
 import os
+import traceback
 
 router = APIRouter(prefix="/api/speech", tags=["Speech Analysis"])
 
@@ -20,7 +21,7 @@ def analyze_speech(file: UploadFile = File(...)):
     문장 단위로 통합된 결과를 반환합니다.
     """
     try:
-        print("분석 시작!")  # 이런 로그가 있어야 터미널에 찍힘
+        print("분석 시작!")  # 이런 로그가 있어야 터미널에 찍힘 
         # 1. 파일을 .wav로 변환
         wav_path = convert_to_wav(file)
 
@@ -28,6 +29,14 @@ def analyze_speech(file: UploadFile = File(...)):
         whisper_result = run_whisper_transcribe(wav_path)
         segments = whisper_result.get("segments", [])
         full_text = whisper_result.get("text", "")
+
+        print("full_text:", full_text)
+        print("Whisper segments text list:")
+        for idx, seg in enumerate(segments):
+            print(f"segment[{idx}]:", seg.get("text"))
+        # 기존 segment 전체 출력은 주석 처리
+        # for seg in segments:
+        #     print("segment:", seg)
 
         # 3. 말버릇(LLM) 분석 (Whisper 텍스트만 사용)
         filler_result = analyze_filler_from_text(full_text)
@@ -43,7 +52,7 @@ def analyze_speech(file: UploadFile = File(...)):
             seg["speed"] = speed_results[i]["feedback"] if i < len(speed_results) else None
             seg["intonation"] = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
 
-        # 어휘력 피드백 추가
+              # 어휘력 피드백 추가
         segments = add_context_to_segments(segments)
 
         # 5. 통합 결과 생성
@@ -67,8 +76,14 @@ def analyze_speech(file: UploadFile = File(...)):
         if os.path.exists(wav_path):
             os.remove(wav_path)
 
-        return JSONResponse(content={"segments": merged_segments})
+        # full_text도 같이 반환
+        return JSONResponse(content={
+            "segments": merged_segments,
+            "full_text": full_text
+        })
     except Exception as e:
+        print("에러:", e)
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e)) 
 
 class TextInput(BaseModel):
