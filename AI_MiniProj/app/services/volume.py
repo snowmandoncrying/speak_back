@@ -5,6 +5,10 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
+def safe_to_float(value):
+    return float(value.item()) if isinstance(value, (np.floating, np.integer)) else float(value)
+
+
 class PronunciationAnalyzer:
     def validate_audio_file(self, file_path: str) -> bool:
         """오디오 파일 유효성 검사"""
@@ -98,9 +102,9 @@ class PronunciationAnalyzer:
             print(f"[DEBUG] mean_rms: {mean_rms:.5f}, 분류결과: {volume_status}")
 
             return {
-            "rms": float(mean_rms),
-            "status": volume_status,
-            "feedback": feedback
+            "rms": safe_to_float(mean_rms),
+            "status": str(volume_status),
+            "feedback": str(feedback)
             }
 
         except Exception as e:

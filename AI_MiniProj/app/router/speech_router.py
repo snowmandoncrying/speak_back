@@ -7,6 +7,8 @@ from app.services.speed_analyzer import analyze_speed
 from app.services.intonation_analyzer import analyze_intonation
 from app.services.qa_generator import generate_qa_pairs
 from app.services.context_feedback_service import add_context_to_segments
+from app.services.volume import PronunciationAnalyzer
+pronunciation_analyzer = PronunciationAnalyzer()
 from pydantic import BaseModel
 from fastapi import Form
 import os
@@ -46,12 +48,25 @@ def analyze_speech(file: UploadFile = File(...)):
         # 4. (추가 분석 서비스: 속도, 억양 등 segment별로 결과 추가)
         speed_results, avg_spm, avg_wpm = analyze_speed(wav_path, segments)
         intonation_results, avg_pitch_std, pitch_ranges = analyze_intonation(wav_path, segments)
+        previous_segment = None
+        silence_segments = pronunciation_analyzer.detect_silence_segments(wav_path)
         for i, seg in enumerate(segments):
             seg_id = seg.get("id")
             seg["filler"] = filler_map.get(seg_id, "없음")
             seg["speed"] = speed_results[i]["feedback"] if i < len(speed_results) else None
             seg["intonation"] = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
+            seg["volume"] = pronunciation_analyzer.analyze_volume(wav_path, seg["start"], seg["end"])
 
+            silence_duration, silence_feedback = pronunciation_analyzer.analyze_silence(
+                seg, previous_segment, silence_segments
+            )
+            if silence_feedback:
+                seg["silence"] = {
+                    "duration": float(silence_duration) if silence_duration is not None else None,
+                    "feedback": silence_feedback
+                }
+
+            previous_segment = seg
               # 어휘력 피드백 추가
         segments = add_context_to_segments(segments)
 
