@@ -5,34 +5,21 @@ from app.services.whisper_service import run_whisper_transcribe
 from app.services.filler_llm_detector import analyze_filler_from_text, build_filler_map_from_result
 from app.services.speed_analyzer import analyze_speed
 from app.services.intonation_analyzer import analyze_intonation
-from app.services.context_feedback_service import add_context_to_segments
-from app.services.volume import PronunciationAnalyzer
+from app.services.qa_generator import generate_qa_pairs
+from pydantic import BaseModel
+from fastapi import Form
 import os
-import numpy as np
 
 router = APIRouter(prefix="/api/speech", tags=["Speech Analysis"])
 
-# PronunciationAnalyzer 인스턴스 생성
-pronunciation_analyzer = PronunciationAnalyzer()
-
-def convert_numpy_types(obj):
-    if isinstance(obj, np.floating):
-        return float(obj)
-    elif isinstance(obj, np.integer):
-        return int(obj)
-    elif isinstance(obj, dict):
-        return {key: convert_numpy_types(value) for key, value in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        return [convert_numpy_types(item) for item in obj]
-    return obj
-
 @router.post("/analyze")
-async def analyze_speech(file: UploadFile = File(...)):
+def analyze_speech(file: UploadFile = File(...)):
     """
     업로드된 음성 파일을 받아서, whisper 및 추가 분석을 수행하고,
     문장 단위로 통합된 결과를 반환합니다.
     """
     try:
+        print("분석 시작!")  # 이런 로그가 있어야 터미널에 찍힘
         # 1. 파일을 .wav로 변환
         wav_path = convert_to_wav(file)
 
@@ -49,29 +36,13 @@ async def analyze_speech(file: UploadFile = File(...)):
         # 4. (추가 분석 서비스: 속도, 억양 등 segment별로 결과 추가)
         speed_results, avg_spm, avg_wpm = analyze_speed(wav_path, segments)
         intonation_results, avg_pitch_std, pitch_ranges = analyze_intonation(wav_path, segments)
-        silence_segments = pronunciation_analyzer.detect_silence_segments(wav_path)
-        
         for i, seg in enumerate(segments):
             seg_id = seg.get("id")
             seg["filler"] = filler_map.get(seg_id, "없음")
             seg["speed"] = speed_results[i]["feedback"] if i < len(speed_results) else None
             seg["intonation"] = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
-            seg["volume"] = pronunciation_analyzer.analyze_volume(wav_path, seg["start"], seg["end"])
 
-            silence_duration, silence_feedback = pronunciation_analyzer.analyze_silence(
-                seg, previous_segment = None, silence_segments = silence_segments
-            )
-            if silence_feedback:
-                seg["silence"] = {
-                    "duration": float(silence_duration) if silence_duration is not None else None,
-                    "feedback": silence_feedback
-                }
-
-            previous_segment = seg
-        # 5. 각 segment에 Gemini context 피드백 추가 (비동기)
-        segments = await add_context_to_segments(segments)
-
-        # 6. 통합 결과 생성
+        # 5. 통합 결과 생성
         merged_segments = []
         for seg in segments:
             merged = {
@@ -79,12 +50,11 @@ async def analyze_speech(file: UploadFile = File(...)):
                 "endPoint": seg.get("end"),
                 "word": seg.get("text"),
                 "speed": seg.get("speed"),
-                "volume": convert_numpy_types(seg.get("volume")),
+                "volume": seg.get("volume"),
                 "intonation": seg.get("intonation"),
                 "pronunciation": seg.get("pronunciation"),
                 "filler": seg.get("filler"),
-                "silence": convert_numpy_types(seg.get("silence")),
-                "context": seg.get("context"),
+                "silence": seg.get("silence"),
             }
             merged_segments.append(merged)
 
@@ -95,3 +65,16 @@ async def analyze_speech(file: UploadFile = File(...)):
         return JSONResponse(content={"segments": merged_segments})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
+
+class TextInput(BaseModel):
+    text: str
+
+@router.post("/questions")
+def generate_questions(text: str = Form(...)):
+    print("받은 텍스트:", text)
+    print("받은 텍스트 길이:", len(text))
+    try:
+        result = generate_qa_pairs(text)
+        return JSONResponse(content=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
