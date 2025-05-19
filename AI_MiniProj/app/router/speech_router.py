@@ -5,12 +5,13 @@ from app.services.whisper_service import run_whisper_transcribe
 from app.services.filler_llm_detector import analyze_filler_from_text, build_filler_map_from_result
 from app.services.speed_analyzer import analyze_speed
 from app.services.intonation_analyzer import analyze_intonation
+from app.services.context_feedback_service import add_context_to_segments
 import os
 
 router = APIRouter(prefix="/api/speech", tags=["Speech Analysis"])
 
 @router.post("/analyze")
-def analyze_speech(file: UploadFile = File(...)):
+async def analyze_speech(file: UploadFile = File(...)):
     """
     업로드된 음성 파일을 받아서, whisper 및 추가 분석을 수행하고,
     문장 단위로 통합된 결과를 반환합니다.
@@ -38,7 +39,10 @@ def analyze_speech(file: UploadFile = File(...)):
             seg["speed"] = speed_results[i]["feedback"] if i < len(speed_results) else None
             seg["intonation"] = intonation_results[i]["intonation_feedback"] if i < len(intonation_results) else None
 
-        # 5. 통합 결과 생성
+        # 5. 각 segment에 Gemini context 피드백 추가 (비동기)
+        segments = await add_context_to_segments(segments)
+
+        # 6. 통합 결과 생성
         merged_segments = []
         for seg in segments:
             merged = {
@@ -51,6 +55,7 @@ def analyze_speech(file: UploadFile = File(...)):
                 "pronunciation": seg.get("pronunciation"),
                 "filler": seg.get("filler"),
                 "silence": seg.get("silence"),
+                "context": seg.get("context"),
             }
             merged_segments.append(merged)
 
